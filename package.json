@@ -1,0 +1,1 @@
+{"name":"match-next","version":"1.0.0","description":"大会で空いた日程を練習試合につなげるスポーツチームWebアプリ","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"express":"^4.21.2"}}

@@ -1,0 +1,16 @@
+const express=require("express"),fs=require("fs"),path=require("path"),crypto=require("crypto");
+const app=express(),PORT=process.env.PORT||3000,FILE=path.join(__dirname,"data.json");
+app.use(express.json({limit:"2mb"}));app.use(express.static(path.join(__dirname,"public")));
+const load=()=>{try{return JSON.parse(fs.readFileSync(FILE,"utf8"))}catch{return{teams:[],tournaments:[],users:[]}}};
+const save=d=>fs.writeFileSync(FILE,JSON.stringify(d,null,2),"utf8");
+const id=p=>p+"_"+crypto.randomBytes(5).toString("hex");
+
+app.get("/api/data",(q,s)=>{const d=load();s.json({teams:d.teams,tournaments:d.tournaments})});
+app.post("/api/teams",(q,s)=>{const d=load(),b=q.body;if(!b.name||!b.type||!b.sport||!b.prefecture||!b.city)return s.status(400).json({error:"必須項目を入力してください。"});
+const t={id:id("team"),name:b.name.trim(),type:b.type,sport:b.sport.trim(),category:(b.category||"").trim(),prefecture:b.prefecture.trim(),city:b.city.trim(),instagram:(b.instagram||"").trim(),image:(b.image||"").trim(),intro:(b.intro||"").trim(),schoolPhone:(b.schoolPhone||"").trim(),coachPhone:(b.coachPhone||"").trim(),showCoachPhone:!!b.showCoachPhone,results:Array.isArray(b.results)?b.results:[],availableDates:Array.isArray(b.availableDates)?b.availableDates:[],createdAt:new Date().toISOString()};d.teams.push(t);save(d);s.status(201).json(t)});
+app.post("/api/teams/:id/results",(q,s)=>{const d=load(),t=d.teams.find(x=>x.id===q.params.id),b=q.body;if(!t)return s.status(404).json({error:"チームが見つかりません。"});if(!b.tournament||!b.year||!b.result)return s.status(400).json({error:"大会名・年度・結果は必須です。"});t.results.push({id:id("result"),tournament:b.tournament,year:Number(b.year),result:b.result,opponent:b.opponent||"",score:b.score||"",date:b.date||""});save(d);s.status(201).json(t)});
+app.post("/api/teams/:id/availability",(q,s)=>{const d=load(),t=d.teams.find(x=>x.id===q.params.id);if(!t)return s.status(404).json({error:"チームが見つかりません。"});t.availableDates=[...new Set((q.body.dates||[]).filter(Boolean))].sort();save(d);s.json(t)});
+app.post("/api/tournaments",(q,s)=>{const d=load(),b=q.body;if(!b.name||!b.sport)return s.status(400).json({error:"大会名と競技は必須です。"});const t={id:id("tour"),name:b.name.trim(),year:Number(b.year)||new Date().getFullYear(),sport:b.sport.trim(),type:b.type||"",prefecture:b.prefecture||"",city:b.city||"",startDate:b.startDate||"",endDate:b.endDate||"",matches:Array.isArray(b.matches)?b.matches:[]};d.tournaments.push(t);save(d);s.status(201).json(t)});
+app.post("/api/tournaments/:id/matches",(q,s)=>{const d=load(),t=d.tournaments.find(x=>x.id===q.params.id),b=q.body;if(!t)return s.status(404).json({error:"大会が見つかりません。"});if(!b.round||!b.teamA||!b.teamB||!b.date)return s.status(400).json({error:"回戦・チーム・日付は必須です。"});t.matches.push({id:id("match"),round:b.round,teamA:b.teamA,teamB:b.teamB,scoreA:b.scoreA??"",scoreB:b.scoreB??"",date:b.date,winner:b.winner||""});save(d);s.status(201).json(t)});
+app.get("*",(q,s)=>s.sendFile(path.join(__dirname,"public","index.html")));
+app.listen(PORT,()=>console.log("MATCH NEXT running on "+PORT));
